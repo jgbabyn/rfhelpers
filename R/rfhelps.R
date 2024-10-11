@@ -1104,6 +1104,8 @@ run_redfish_acl <- function(weight_array,maturity_array,survey_df,landings_df,F_
                     
                 
             }})
+        }else{
+            siggy = NA
         }
 
         ## if(catch_type == "prop"){

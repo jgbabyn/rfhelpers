@@ -377,26 +377,31 @@ void Lorenzen_M_int(matrix<Type> &M, Type &nll, objective_function<Type> *obj, s
 
   Type f_age = Type(A-1)+Type(start_age)+0.5;
   Type mu_f = 0.0;
-  if(gft == 0){
-    mu_f = growth_fun.mean_len_at_age(f_age);
-  }else{
-    mu_f = growth_fun.mean_len_at_ageP(f_age);
-  } 
   int Y = M.cols();
+  matrix<Type> mus(A,Y);
   for(int a = 0; a < A; ++a){
     for(int y = 0; y < Y; ++y){
       //Mid year age
       Type age = Type(a)+Type(start_age) + 0.5;
+
+      if(gft == 0){
+	mu_f = growth_fun.mean_len_at_age(f_age);
+      }else{
+	mu_f = growth_fun.mean_len_at_age(f_age,y);
+      } 
       Type mu_len = 0.0;
       if(gft == 0){
 	mu_len = growth_fun.mean_len_at_age(age);
       }else{
-	mu_len = growth_fun.mean_len_at_ageP(age);
+	mu_len = growth_fun.mean_len_at_age(age,y);
       }
+      mus(a,y) = mu_len;
       M(a,y) = base_M*(pow(mu_len,-1)/pow(mu_f,-1));
     }
   }
 
+  Report("mus",mus,obj,"toasty.");
+  Report("mu_f",mu_f,obj,"toasty.");
 }
 
 template<class Type>
@@ -732,10 +737,13 @@ void aggregated_F(matrix<Type> &S_ay,matrix<Type> &F_ay,Type &nll,objective_func
    int proj_type = DataInteger("proj_type",obj);
    int og_Y = DataInteger("og_Y",obj);
    int r_proj = DataInteger("r_proj",obj);
+
+   vector<Type> Fy_nll(log_Fy.size());
   
  
   for(int y = 1; y < log_Fy.size(); ++y){
     nll -= dnorm(log_Fy(y),log_Fy(y-1),Fy_sd,true);
+    Fy_nll(y) = dnorm(log_Fy(y),log_Fy(y-1),Fy_sd,true);
   }
 
   vector<Type> Fy = exp(log_Fy);
@@ -764,6 +772,7 @@ void aggregated_F(matrix<Type> &S_ay,matrix<Type> &F_ay,Type &nll,objective_func
   
   
 
+  Report("Fy_nll",Fy_nll,obj,"");
   Report("log_Fy",log_Fy,obj,"");
   Adreport("Fy_sd",Fy_sd,obj,"");
 
@@ -940,12 +949,15 @@ void neo_cohort_effects_N(matrix<Type> &N,matrix<Type> &Z, Type &nll,objective_f
   matrix<Type> LNPLUS = lltCovNPLUS.matrixL();
   matrix<Type> LinvNPLUS = LN.inverse();
 
+  vector<Type> N_nll(A);
   
   density::MVNORM_t<Type> recdens(rec_sigma);
   vector<Type> dum_rel(Y);
   for(int y = 0; y < Y;++y){
     dum_rel(y) = mcomp(0,y)-mpredN(0,y);
   }
+
+  N_nll(0) = recdens(dum_rel);
   nll += recdens(dum_rel);
   resNraw.row(0) = mcomp.row(0)-mpredN.row(0);
   resN.row(0) = LinvN*(vector<Type>(mcomp.row(0)-mpredN.row(0)));
@@ -955,14 +967,18 @@ void neo_cohort_effects_N(matrix<Type> &N,matrix<Type> &Z, Type &nll,objective_f
   density::MVNORM_t<Type> plusdens(plus_sigma);
 
   
+
+  
   for(int a = 1; a < A; ++a){
     for(int y = 0; y < Y;++y){
       dum_rel(y) = mcomp(a,y)-mpredN(a,y);
     }
       if(a < A-1){
 	nll += evdens(dum_rel);
+	N_nll(a) = evdens(dum_rel);
       }else{
 	nll += plusdens(dum_rel);
+	N_nll(a) = plusdens(dum_rel);
       }
     
     resNraw.row(a) = mcomp.row(a)-mpredN.row(a);
@@ -992,7 +1008,7 @@ void neo_cohort_effects_N(matrix<Type> &N,matrix<Type> &Z, Type &nll,objective_f
   Report("MMs",MMs,obj,"");
   
 
-  
+  Report("N_nll",N_nll,obj,"");
   Report("mcomp",mcomp,obj,"");
   Report("mpredN",mpredN,obj,"");
   Report("mpredN2",mpredN2,obj,"");

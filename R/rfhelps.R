@@ -459,7 +459,7 @@ build_data <- function(years,ages,lengths,weight_array,maturity_array,survey_df,
     weightsF = weight_array[as.character(1:inf_length),as.character(start_year:end_year),"female"]
     weightsM = weight_array[as.character(1:inf_length),as.character(start_year:end_year),"male"]
 
-    maturityF = maturity_array[as.character(1:inf_length),as.character(start_year:end_year),"male"]
+    maturityF = maturity_array[as.character(1:inf_length),as.character(start_year:end_year),"female"]
     maturityM = maturity_array[as.character(1:inf_length),as.character(start_year:end_year),"male"]
 
     survey2 = survey_df |>
@@ -1044,6 +1044,7 @@ run_redfish_acl <- function(weight_array,maturity_array,survey_df,landings_df,F_
     tmb.data$proj_years = 0
     tmb.data$og_Y = tmb.data$Y
     tmb.data$supplied_F = rep(0.1,tmb.data$proj_years)
+
     
     obj = TMB::MakeADFun(tmb.data,parms,map=mapp,random=randos,intern=FALSE, DLL="redfish",inner.control = inner.control,silent = silent)
     

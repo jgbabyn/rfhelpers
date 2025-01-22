@@ -1,3 +1,6 @@
+#undef CPPAD_FRAMEWORK
+#define TMBAD_FRAMEWORK
+#define TMBAD_INDEX_TYPE uint64_t
 #define TMB_LIB_INIT R_init_redfish
 #include <TMB.hpp>
 #include "data_parameter.hpp"
@@ -205,6 +208,7 @@ void fit_survey(Type &nll,matrix<Type> &QLM,matrix<Type> &N,int L3,int Y, int st
   vector<Type> std_log_survey_resids(survey_size);
   //vector<Type> total_survey_abundance;
   vector<Type> total_survey_abundance(n_years);
+  vector<Type> survey_nlls(n_years);
 
   vector< matrix<Type> > Ssigmas(n_years);
 
@@ -285,6 +289,7 @@ void fit_survey(Type &nll,matrix<Type> &QLM,matrix<Type> &N,int L3,int Y, int st
       }
 
       nll += MVNORM(Ssigma)(log_diff);
+      survey_nlls(yy) = MVNORM(Ssigma)(log_diff);
     
       Ssigmas(yy) = Ssigma;
 
@@ -353,6 +358,7 @@ void fit_survey(Type &nll,matrix<Type> &QLM,matrix<Type> &N,int L3,int Y, int st
   Report("log_survey_resids",log_survey_resids,obj);
   Report("std_log_survey_resids",std_log_survey_resids,obj);
 
+  Report("survey_nlls",survey_nlls,obj);
   Report("Ssigmas",Ssigmas,obj);
   Adreport("sd_survey",exp(sd_survey),obj);
   if(survey_sigtype == 1){
@@ -396,6 +402,7 @@ void fit_catch_prop(Type &nll, matrix<Type> &catch_at_length, objective_function
   vector<vector<Type> > agg_props(n_years);
   vector<vector<Type> > std_diffs(n_years);
   vector<vector<Type> > logit_exp_props(n_years);
+  vector<Type> catch_nlls(n_years);
 
   enum catch_sigma_t{
     independent_c = 0,
@@ -498,12 +505,14 @@ void fit_catch_prop(Type &nll, matrix<Type> &catch_at_length, objective_function
       matrix<Type> LD = lltDiff.matrixL();
       matrix<Type> LinvD = LD.inverse();
       std_diffs(i) = LinvD*(diff);
-  
+
+      catch_nlls(i) = MVNORM(sigma)(diff);
       nll += MVNORM(sigma)(diff);
       
    }
    matrix<Type> sd_catch_prop_m = log_sd_catch_prop_m.array().exp();
-   
+
+   Report("catch_nlls",catch_nlls,obj);
    Report("years",years,obj);
    Report("props",props,obj);
    Report("agg_props",agg_props,obj);
@@ -741,8 +750,8 @@ Type objective_function<Type>::operator() ()
 
   for(int y = 0; y < Y; ++y){
     plas_jan(y) = prob_len_at_age(growth_fun,len_bins,ages_jan,y);
-    plas_mid(y) = prob_len_at_age(growth_fun,len_bins,ages_mid,y);
     plas_fall(y) = prob_len_at_age(growth_fun,len_bins,ages_fall,y);
+    plas_mid(y) = prob_len_at_age(growth_fun,len_bins,ages_mid,y);
   }
 
   vector< vector<Type> > ages_combo(3);
@@ -760,21 +769,21 @@ Type objective_function<Type>::operator() ()
     break;
   case AR:
     S_ly = mv_AR_sel(nll,this,Y,L3,len_bins);
-    S_ay = convert_Sly_to_Say(S_ly,plas_jan,A);
+    S_ay = convert_Sly_to_Say(S_ly,plas_mid,A);
     aggregated_F(S_ay,F,nll,this,log_Fy,Fy_sd);
     Report("S_ly",S_ly,this);
     Report("S_ay",S_ay,this);
     break;
   case rwrw:
     S_ly = rwrw_sel(L3,Y,len_bins,nll,this);
-    S_ay = convert_Sly_to_Say(S_ly,plas_jan,A);
+    S_ay = convert_Sly_to_Say(S_ly,plas_mid,A);
     aggregated_F(S_ay,F,nll,this,log_Fy,Fy_sd);
     Report("S_ly",S_ly,this);
     Report("S_ay",S_ay,this);
     break;
   case simp_len_blocked:
     S_ly = blocked_super_simple_sel(L3,Y,len_bins,nll,this);
-    S_ay = convert_Sly_to_Say(S_ly,plas_jan,A);
+    S_ay = convert_Sly_to_Say(S_ly,plas_mid,A);
     aggregated_F(S_ay,F,nll,this,log_Fy,Fy_sd);
     Report("S_ly",S_ly,this);
     Report("S_ay",S_ay,this);
@@ -838,6 +847,7 @@ Type objective_function<Type>::operator() ()
   QLM.col(1) = camp_Q.QL;
   QLM.col(0) = engel_Q.QL;
   vector<Type> Q_rho(L3);
+  vector<Type> Q_nll(L3);
   for(int l = 0; l < L3; ++l){
     Q_rho(l) = log(QLM(l,0)/QLM(l,1));
   }
@@ -850,6 +860,7 @@ Type objective_function<Type>::operator() ()
       }
     }
     for(int l = 0; l < L3; ++l){
+      Q_nll(l) = dnorm(Q_rho(l),log(Qpriors(l)),Q_max_sd,true);
       nll -= dnorm(Q_rho(l),log(Qpriors(l)),Q_max_sd,true);
     }
     Report("QLM",QLM,this);
@@ -861,7 +872,8 @@ Type objective_function<Type>::operator() ()
   engel_Q.report();
   Adreport("Q_rho",Q_rho,this,"",adr_flag);
   Report("Q_rho",Q_rho,this);
-
+  Report("Q_nll",Q_nll,this);
+  
   fit_survey(nll,QLM,NL_fall,L3,Y,start_length,end_length,this);
   
   matrix<Type> catch_at_age(A,Y);

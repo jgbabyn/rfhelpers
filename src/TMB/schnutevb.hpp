@@ -387,7 +387,8 @@ schnutevb_t<Type>::schnutevb_t(objective_function<Type> *obj, std::string pre,in
 	as_pg = _as_pg;
 	as_pg(0) = init_a_pg;
 	for(int y = 1; y < log_N_a.cols(); ++y){
-	  as_pg(y) = (exp(log_N_a(A-1,y-1))*1+exp(log_N_a(A,y-1))*(as_pg(y-1)+1))/(exp(log_N_a(A-1,y-1))+exp(log_N_a(A,y-1)));
+	  as_pg(y) = (exp(log_N_a(A-2,y-1))*1+exp(log_N_a(A-1,y-1))*(as_pg(y-1)+1))/(exp(log_N_a(A-2,y-1))+exp(log_N_a(A-1,y-1)));
+	  //as_pg(y) = (exp(log_N_a(A-1,y-1))*1+exp(log_N_a(A,y-1))*(as_pg(y-1)+1))/(exp(log_N_a(A-1,y-1))+exp(log_N_a(A,y-1)));
 	 }
       }else{
 	error("This doesn't work lol!");
@@ -570,6 +571,11 @@ Type schnutevb_t<Type>::mean_len_at_age(Type t,int y){
       weights(i) = dexp(i+tdff,1/as_pg(y));
       mus(i) = mean_len_at_ageP(t+Type(i)); 
     }
+    Report("weights",weights,objective,"toasty.");
+    Type dorp = 1/as_pg(y);
+    Report("aspg",dorp,objective,"toasty.");
+    Report("tdff",tdff,objective,"toasty.");
+    Report("mus",mus,objective,"toasty.mus2");
     Type wmmu = weighted_mean(mus,weights);
     //Type intmu = my_expecteds::expected_pg_mu(as_pg(y),ell,L,k,M);
     //Rcout << "wmmu:" << wmmu << std::endl;

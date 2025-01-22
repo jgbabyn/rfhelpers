@@ -1,7 +1,7 @@
 # compile tmb models
 invisible(sapply(Sys.glob("*.cpp"),
                  TMB::compile,
-                 safebounds = FALSE, safeunload = FALSE,flags="-O2",framework="TMBad",supernodel=TRUE))
+                 safebounds = FALSE, safeunload = FALSE,flags="-O2"))
 # copy dynlibs to src
 invisible(file.copy(from = Sys.glob(paste0("*", .Platform$dynlib.ext)),
                     to = "..", overwrite = TRUE))
